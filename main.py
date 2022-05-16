@@ -10,21 +10,62 @@ EARTH_RADIUS = 6378000
 
 
 class Point:
-    def __init__(self, lat=0, lon=0) -> None:
+    def __init__(self, lat=0, lon=0, alt=None) -> None:
         self.lat = lat
         self.lon = lon
+        self.alt = alt
 
-    def distance(self, point: Point):
+    def distance(self, point: Point) -> float:
         return Geodesic.WGS84.Inverse(self.lat, self.lon, point.lat, point.lon)["s12"]
 
-    def azimuth(self, point: Point):
+    def azimuth(self, point: Point) -> float:
 
         azimuth = Geodesic.WGS84.Inverse(
             self.lat, self.lon, point.lat, point.lon)["azi1"]
         return azimuth if azimuth > 0 else 360 + azimuth
 
-    def radius(self):
+    def radius(self) -> float:
         return EARTH_RADIUS * math.cos(self.lat * (math.pi / 180))
+
+    def get_offset_point(self, dLat: float, dLon: float) -> Point:
+        return Point(self.lat + dLat, self.lon + dLon, self.alt)
+
+    def __str__(self) -> str:
+
+        return f"{self.lat:.12f}, {self.lon:.12f}" if self.alt is None else f"{self.lat:.12f}, {self.lon:.12f}, {self.alt:.4f}"
+
+
+class Line:
+
+    def __init__(self, points_array: list = []) -> None:
+
+        self.points = []
+
+        for point in points_array:
+            self.add_point(point)
+
+    def add_point(self, point: Point) -> None:
+
+        if not isinstance(point, Point):
+            raise Exception("Input point has to be instance of Point class")
+        self.points.append(point)
+
+    def get_offset_line(self, dLat: float, dLon: float) -> Line:
+        return Line([point.get_offset_point(dLat, dLon) for point in self.points])
+
+    @staticmethod
+    def get_line_between_points(start_p: Point, end_p: Point, points_count: int) -> Line:
+        diff_Lat = (end_p.lat - start_p.lat) / points_count
+        diff_Lon = (end_p.lon - start_p.lon) / points_count
+        return Line([start_p.get_offset_point(diff_Lat * idx, diff_Lon * idx) for idx in range(points_count)])
+
+    def __str__(self) -> str:
+        out_str = ""
+
+        for point in self.points:
+            out_str += f"{point}\n"
+
+        return out_str
 
 
 class InputsCreator:
@@ -33,7 +74,16 @@ class InputsCreator:
         self.settings = settings
         self.axis = None
 
-    def process(self):
+    def process_data(self):
+        pass
+
+    def save_data(self):
+        pass
+
+    def create_axis(self):
+        pass
+
+    def create_plg(self):
         pass
 
 
