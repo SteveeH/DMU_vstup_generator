@@ -54,10 +54,14 @@ class Line:
         return Line([point.get_offset_point(dLat, dLon) for point in self.points])
 
     @staticmethod
-    def get_line_between_points(start_p: Point, end_p: Point, points_count: int) -> Line:
-        diff_Lat = (end_p.lat - start_p.lat) / points_count
-        diff_Lon = (end_p.lon - start_p.lon) / points_count
-        return Line([start_p.get_offset_point(diff_Lat * idx, diff_Lon * idx) for idx in range(points_count)])
+    def get_line_between_points(start_p: Point, end_p: Point, line_segment_count: int) -> Line:
+        if line_segment_count == 0:
+            raise ZeroDivisionError("Line segment count cannot be zero.")
+
+        line_segment_count = abs(line_segment_count)
+        diff_Lat = (end_p.lat - start_p.lat) / line_segment_count
+        diff_Lon = (end_p.lon - start_p.lon) / line_segment_count
+        return Line([start_p.get_offset_point(diff_Lat * idx, diff_Lon * idx) for idx in range(line_segment_count + 1)])
 
     def __str__(self) -> str:
         out_str = ""
