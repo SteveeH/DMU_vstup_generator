@@ -68,7 +68,7 @@ class Point:
 
     def __str__(self) -> str:
 
-        return f"{self.lat:.12f}, {self.lon:.12f}" if self.alt is None else f"{self.lat:.12f}, {self.lon:.12f}, {self.alt:.4f}"
+        return f"{self.lat:.12f}\t{self.lon:.12f}" if self.alt is None else f"{self.lat:.12f}\t{self.lon:.12f}\t{self.alt:.4f}"
 
 
 class Line:
@@ -326,7 +326,7 @@ if __name__ == "__main__":
 
     # ROZTOKY
     settings = {
-        "out_folder": "roztoky",
+        "out_folder": "data_roztoky",
         "axis_file_path": "axis.txt",
         "diff_file_path": "diff.txt",
         "dmt_file_path": "dmt.txt",
@@ -340,7 +340,7 @@ if __name__ == "__main__":
     """ 
     ## STRAHOV
     settings = {
-        "out_folder": "test",
+        "out_folder": "data_test",
         "axis_file_path": "axis.txt",
         "diff_file_path": "diff.txt",
         "dmt_file_path": "dmt.txt",
