@@ -7,8 +7,8 @@ import simplekml
 from copy import deepcopy
 from geographiclib.geodesic import Geodesic
 from typing import List, Tuple
-#from krovak05 import krovak05
 import krovak05
+import utm
 
 
 EARTH_RADIUS = 6378000
@@ -18,12 +18,17 @@ krovak = krovak05.Transformation()
 
 
 class Point:
-    def __init__(self, lat: float = 0, lon: float = 0, alt: float = None, name: str = "") -> None:
+    def __init__(self, lat: float = 0, lon: float = 0, alt: float = None, name: str = None, default_print="wgs") -> None:
         self.lat = lat
         self.lon = lon
         self.alt = alt
         self.name = name
         self.sta = None
+        self.default_print = default_print
+
+        self.e_utm = None
+        self.n_utm = None
+        self.zone_utm = None
 
         self.y_jtsk = None
         self.x_jtsk = None
@@ -44,6 +49,9 @@ class Point:
         self.y_jtsk, self.x_jtsk, self.h_bpv = krovak.etrs_jtsk(
             self.lat, self.lon, 100 if self.alt is None else self.alt)
 
+        self.e_utm, self.n_utm, self.zone_utm, _ = utm.from_latlon(
+            self.lat, self.lon)
+
     def coord_wgs(self) -> tuple:
         """
         Return coordinates of point : LON, LAT, ALT (if is not None)
@@ -53,30 +61,47 @@ class Point:
     def coord_jtsk(self):
         return (self.y_jtsk, self.x_jtsk, self.h_bpv)
 
+    def coord_utm(self):
+        return (self.e_utm, self.n_utm, self.alt)
+
     def radius(self) -> float:
         return EARTH_RADIUS * math.cos(self.lat * (math.pi / 180))
 
     def get_offset_point(self, dLat: float, dLon: float, dAlt: float = 0) -> Point:
-        return Point(self.lat + dLat, self.lon + dLon, None if self.alt is None else self.alt + dAlt)
+        return Point(self.lat + dLat, self.lon + dLon, None if self.alt is None else self.alt + dAlt, default_print=self.default_print)
 
     def kml(self, folder: simplekml.Folder, color: simplekml.Color = simplekml.Color.blue) -> None:
         point = folder.newpoint(name=self.name, coords=[(self.lon, self.lat)])
         point.iconstyle.color = color
 
-    def str_jtsk(self, name: str = None) -> str:
-        return f"{ '' if name is None else name + ','}{self.y_jtsk:.4f},{self.x_jtsk:.4f},{self.h_bpv:.4f}"
+    def str_jtsk(self) -> str:
+        return f"{ '' if self.name is None else self.name + ','}" + f"{self.y_jtsk:.4f},{self.x_jtsk:.4f},{self.h_bpv:.4f}"
+
+    def str_utm(self) -> str:
+        return f"{ '' if self.name is None else self.name + ','}" + f"{self.e_utm:.4f},{self.n_utm:.4f}" if self.alt is None else f"{self.e_utm:.4f},{self.n_utm:.4f},{self.alt:.4f}"
+
+    def str_wgs(self) -> str:
+        return f"{ '' if self.name is None else self.name + ','}" + f"{self.lat:.12f}\t{self.lon:.12f}" if self.alt is None else f"{self.lat:.12f}\t{self.lon:.12f}\t{self.alt:.4f}"
 
     def __str__(self) -> str:
 
-        return f"{self.lat:.12f}\t{self.lon:.12f}" if self.alt is None else f"{self.lat:.12f}\t{self.lon:.12f}\t{self.alt:.4f}"
+        if self.default_print == "utm":
+            return self.str_utm()
+
+        elif self.default_print == "jtsk":
+            return self.str_jtsk()
+
+        else:
+            return self.str_wgs()
 
 
 class Line:
 
-    def __init__(self, points_array: List[Point] = [], name: str = "") -> None:
+    def __init__(self, points_array: List[Point] = [], name: str = "", default_print="wgs") -> None:
 
         self.points: List[Point] = []
         self.name = name
+        self.default_print = default_print
 
         for point in points_array:
             self.add_point(point, False)
@@ -188,6 +213,8 @@ class InputsCreator:
         self.plg: List[Point] = None
         self.dmt_real_lines: List[Line] = None
         self.dmt_diff_lines: List[Line] = None
+        self.dmt_design_lines: List[Line] = None
+        self.real_height: int = 100
 
         # KML
         self.kml = simplekml.Kml()
@@ -201,6 +228,7 @@ class InputsCreator:
         self.create_axis()
         self.create_diff()
         self.create_real()
+        self.create_design()
         self.create_plg()
         self.create_kml()
         self.save_data()
@@ -222,6 +250,11 @@ class InputsCreator:
         with open(os.path.join(self.settings["out_folder"], self.settings["dmt_file_path"]), "w") as f_dm:
             for dm_line in self.dmt_real_lines:
                 f_dm.writelines(f"{dm_line}")
+
+        # save design
+        with open(os.path.join(self.settings["out_folder"], self.settings["design_file_path"]), "w") as f_des:
+            for des_line in self.dmt_design_lines:
+                f_des.writelines(f"{des_line}")
 
         # save plg
         with open(os.path.join(self.settings["out_folder"], self.settings["plg_file_path"]), "w") as f_pl:
@@ -252,7 +285,7 @@ class InputsCreator:
             #("osa_start", self.axis.points[0]), ("osa_end", self.axis.points[-1]),
             for name, point in points:
 
-                f_cr.write(f"{point.str_jtsk(name)}\n")
+                f_cr.write(f"{point.str_jtsk()}\n")
 
     def create_output_folder(self) -> None:
 
@@ -289,9 +322,19 @@ class InputsCreator:
         dmt_lines = deepcopy(self.dmt_diff_lines)
 
         for line in dmt_lines:
-            line.change_line_heights(100, 100)
+            line.change_line_heights(self.real_height, self.real_height)
 
         self.dmt_real_lines = dmt_lines
+
+    def create_design(self) -> None:
+
+        design = deepcopy(self.dmt_diff_lines)
+
+        for line in design:
+            for point in line.points:
+                point.alt = self.real_height - (point.alt) / 1000
+
+        self.dmt_design_lines = design
 
     def create_plg(self) -> None:
 
@@ -326,31 +369,18 @@ if __name__ == "__main__":
 
     # ROZTOKY
     settings = {
-        "out_folder": "data_roztoky",
+        "out_folder": "data_roztoky_v3",
         "axis_file_path": "axis.txt",
         "diff_file_path": "diff.txt",
         "dmt_file_path": "dmt.txt",
+        "design_file_path": "desing.txt",
         "plg_file_path": "plg.txt",
         "kml_file_path": "output.kml",
-        "start": Point(50.16250449888302, 14.400743217381002),
-        "end": Point(50.163062994665374, 14.400209747375538),
-        "spacing": 0.2,
-        "lines_count": 10,
+        "start": Point(50.16250449888302, 14.400743217381002, default_print="utm"),
+        "end": Point(50.163062994665374, 14.400209747375538, default_print="utm"),
+        "spacing": 0.1,
+        "lines_count": 20,
     }
-    """ 
-    ## STRAHOV
-    settings = {
-        "out_folder": "data_test",
-        "axis_file_path": "axis.txt",
-        "diff_file_path": "diff.txt",
-        "dmt_file_path": "dmt.txt",
-        "plg_file_path": "plg.txt",
-        "kml_file_path": "output.kml",
-        "start": Point(50.0792144685, 14.385311273),
-        "end": Point(50.0794838003, 14.385289759),
-        "spacing": 0.2,
-        "lines_count": 10,
-    } """
 
     IC = InputsCreator(settings)
     IC.process_data()
