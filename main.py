@@ -169,18 +169,21 @@ class Line:
             self.points[idx].alt = self.points[idx - 1].alt + dh
 
     @staticmethod
-    def get_line_between_points(start_p: Point, end_p: Point, line_segment_count: int) -> Line:
-        if line_segment_count == 0:
-            raise ZeroDivisionError("Line segment count cannot be zero.")
+    def get_line_between_points(start_p: Point, end_p: Point, spacing_dist: float) -> Line:
+        if spacing_dist <= 0:
+            raise ZeroDivisionError(
+                "Spacing should not be less or equal to 0.")
 
-        line_segment_count = abs(line_segment_count)
-        diff_Lat = (end_p.lat - start_p.lat) / line_segment_count
-        diff_Lon = (end_p.lon - start_p.lon) / line_segment_count
+        count_p: float = start_p.distance(end_p) / spacing_dist
+        line_segment_count = math.floor(count_p)
+
+        diff_Lat = (end_p.lat - start_p.lat) / count_p
+        diff_Lon = (end_p.lon - start_p.lon) / count_p
 
         if None in [start_p.alt, end_p.alt]:
             return Line([start_p.get_offset_point(diff_Lat * idx, diff_Lon * idx) for idx in range(line_segment_count + 1)])
         else:
-            diff_Alt = (end_p.alt - start_p.alt) / line_segment_count
+            diff_Alt = (end_p.alt - start_p.alt) / count_p
             return Line([start_p.get_offset_point(diff_Lat * idx, diff_Lon * idx, diff_Alt * idx) for idx in range(line_segment_count + 1)])
 
     def len(self) -> int:
@@ -294,11 +297,8 @@ class InputsCreator:
 
     def create_axis(self) -> None:
 
-        count_p = math.floor(self.settings["start"].distance(
-            self.settings["end"]) / self.settings["spacing"])
-
         self.axis = Line.get_line_between_points(
-            self.settings["start"], self.settings["end"], count_p)
+            self.settings["start"], self.settings["end"], self.settings["spacing"])
 
     def create_diff(self) -> None:
 
