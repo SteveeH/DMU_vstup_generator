@@ -3,8 +3,11 @@ from __future__ import annotations
 import json
 import math
 import os
+import shutil
+from datetime import datetime
 from copy import deepcopy
 from typing import List, Tuple
+
 
 import simplekml
 import utm
@@ -12,6 +15,7 @@ from geographiclib.geodesic import Geodesic
 
 EARTH_RADIUS = 6378000
 RHO = math.pi / 180
+OUTPUT_FOLDER = "output"
 
 
 class Point:
@@ -255,20 +259,100 @@ class InputsCreator:
         self.create_plg()
         self.create_kml()
         self.save_data()
+        self.create_dmu_input()
+
+    def create_dmu_input(self) -> None:
+        # create folder
+        DMD_FOLDER = os.path.join(OUTPUT_FOLDER, self.settings["out_folder"], "input")
+        os.makedirs(DMD_FOLDER, exist_ok=True)
+
+        # create metadata
+        with open(os.path.join(DMD_FOLDER, "000"), "w") as f_md:
+            date_str = datetime.now().strftime("%d.%m.%Y")
+            f_md.write("{\n")
+            f_md.write(f'\t"CreationDate": "{date_str}",\n')
+            f_md.write('\t"Axis": {\n')
+            f_md.write('\t"Offsets": [[0,0]],\n')
+            f_md.write('\t"Scale": 1\n')
+            f_md.write("}\n")
+            f_md.write("}\n")
+
+        ## Copy other files
+
+        # copy design
+        shutil.copy(
+            os.path.join(
+                OUTPUT_FOLDER,
+                self.settings["out_folder"],
+                self.settings["design_file_path"],
+            ),
+            os.path.join(DMD_FOLDER, "001"),
+        )
+
+        # copy diff
+        shutil.copy(
+            os.path.join(
+                OUTPUT_FOLDER,
+                self.settings["out_folder"],
+                self.settings["diff_file_path"],
+            ),
+            os.path.join(DMD_FOLDER, "002"),
+        )
+
+        # copy axis
+        shutil.copy(
+            os.path.join(
+                OUTPUT_FOLDER,
+                self.settings["out_folder"],
+                self.settings["axis_file_path"],
+            ),
+            os.path.join(DMD_FOLDER, "003"),
+        )
+
+        # copy plg
+        shutil.copy(
+            os.path.join(
+                OUTPUT_FOLDER,
+                self.settings["out_folder"],
+                self.settings["plg_file_path"],
+            ),
+            os.path.join(DMD_FOLDER, "004"),
+        )
+
+        # zip all file into one *.dmd file
+        zip_file_name = os.path.join(
+            OUTPUT_FOLDER,
+            self.settings["out_folder"],
+            self.settings["out_folder"] + ".dmd",
+        )
+
+        command_7z = f"7z.exe a -pDmu2023 -tzip {zip_file_name} .\\{DMD_FOLDER}\\*"
+        os.system(command_7z)
+
+        # delete input folder
+        shutil.rmtree(DMD_FOLDER)
 
     def save_data(self) -> None:
         self.create_output_folder()
 
         # save axis
         with open(
-            os.path.join(self.settings["out_folder"], self.settings["axis_file_path"]),
+            os.path.join(
+                OUTPUT_FOLDER,
+                self.settings["out_folder"],
+                self.settings["axis_file_path"],
+            ),
             "w",
         ) as f_ax:
             f_ax.writelines(f"{self.axis}")
 
         # save diff
         with open(
-            os.path.join(self.settings["out_folder"], self.settings["diff_file_path"]),
+            os.path.join(
+                OUTPUT_FOLDER,
+                self.settings["out_folder"],
+                self.settings["diff_file_path"],
+            ),
             "w",
         ) as f_df:
             for df_line in self.dmt_diff_lines:
@@ -276,7 +360,11 @@ class InputsCreator:
 
         # save dmt
         with open(
-            os.path.join(self.settings["out_folder"], self.settings["dmt_file_path"]),
+            os.path.join(
+                OUTPUT_FOLDER,
+                self.settings["out_folder"],
+                self.settings["dmt_file_path"],
+            ),
             "w",
         ) as f_dm:
             for dm_line in self.dmt_real_lines:
@@ -285,7 +373,9 @@ class InputsCreator:
         # save design
         with open(
             os.path.join(
-                self.settings["out_folder"], self.settings["design_file_path"]
+                OUTPUT_FOLDER,
+                self.settings["out_folder"],
+                self.settings["design_file_path"],
             ),
             "w",
         ) as f_des:
@@ -294,7 +384,11 @@ class InputsCreator:
 
         # save plg
         with open(
-            os.path.join(self.settings["out_folder"], self.settings["plg_file_path"]),
+            os.path.join(
+                OUTPUT_FOLDER,
+                self.settings["out_folder"],
+                self.settings["plg_file_path"],
+            ),
             "w",
         ) as f_pl:
             for pl_point in self.plg:
@@ -302,13 +396,19 @@ class InputsCreator:
 
         # save kml
         self.kml.save(
-            os.path.join(self.settings["out_folder"], self.settings["kml_file_path"])
+            os.path.join(
+                OUTPUT_FOLDER,
+                self.settings["out_folder"],
+                self.settings["kml_file_path"],
+            )
         )
 
         # create DMU JSON
         with open(
             os.path.join(
-                self.settings["out_folder"], f"{self.settings['out_folder']}.json"
+                OUTPUT_FOLDER,
+                self.settings["out_folder"],
+                f"{self.settings['out_folder']}.json",
             ),
             "w",
         ) as f_js:
@@ -322,6 +422,7 @@ class InputsCreator:
 
         with open(
             os.path.join(
+                OUTPUT_FOLDER,
                 self.settings["out_folder"],
                 f"{self.settings['out_folder']}_coordinates.txt",
             ),
@@ -337,8 +438,9 @@ class InputsCreator:
                 # f_cr.write(f"{point.str_jtsk()}\n")
 
     def create_output_folder(self) -> None:
-        if not os.path.exists(self.settings["out_folder"]):
-            os.mkdir(self.settings["out_folder"])
+        os.makedirs(
+            os.path.join(OUTPUT_FOLDER, self.settings["out_folder"]), exist_ok=True
+        )
 
     def create_axis(self) -> None:
         self.axis = Line.get_line_between_points(
@@ -418,17 +520,17 @@ if __name__ == "__main__":
     # SWE uprava
     # Filipe musis zmenit souradnice
     settings = {
-        "out_folder": "SWE",
+        "out_folder": "colas_vysocina",
         "axis_file_path": "axis.txt",
         "diff_file_path": "diff.txt",
         "dmt_file_path": "dmt.txt",
         "design_file_path": "desing.txt",
         "plg_file_path": "plg.txt",
         "kml_file_path": "output.kml",
-        "start": Point(57.757822602689934, 11.993394148437847, default_print="utm"),
-        "end": Point(57.757192976602205, 11.992997181534829, default_print="utm"),
+        "start": Point(49.39032343930921, 15.604040568013803, default_print="wgs"),
+        "end": Point(49.39067309938579, 15.603539879798616, default_print="wgs"),
         "spacing": 0.1,
-        "lines_count": 20,
+        "lines_count": 40,
     }
 
     IC = InputsCreator(settings)
