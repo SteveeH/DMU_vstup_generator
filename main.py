@@ -437,6 +437,24 @@ class InputsCreator:
                 pass
                 # f_cr.write(f"{point.str_jtsk()}\n")
 
+        # save calculation settings
+        with open(
+            os.path.join(
+                OUTPUT_FOLDER,
+                self.settings["out_folder"],
+                f"{self.settings['out_folder']}_settings.txt",
+            ),
+            "w",
+        ) as f_set:
+            settings_out = deepcopy(self.settings)
+            settings_out[
+                "start"
+            ] = f'lat: {self.settings["start"].lat}, lon: {self.settings["start"].lon},default_print: {self.settings["start"].default_print}'
+            settings_out[
+                "end"
+            ] = f'lat: {self.settings["end"].lat}, lon: {self.settings["end"].lon},default_print: {self.settings["end"].default_print}'
+            f_set.write(json.dumps(settings_out, indent=4))
+
     def create_output_folder(self) -> None:
         os.makedirs(
             os.path.join(OUTPUT_FOLDER, self.settings["out_folder"]), exist_ok=True
