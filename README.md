@@ -1,4 +1,4 @@
-Aplikace pro tvorbu testovacích data pro program DMU
+Aplikace pro tvorbu testovacích dat pro program DMU
 
 vstupem programu jsou dva body ve WGS84 (EPSG:4326) souřadnicích a výstupem je složka s vygenerovanámi
 testovacími daty a souborem pro program DMU.
