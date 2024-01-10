@@ -465,6 +465,8 @@ class InputsCreator:
             self.settings["start"], self.settings["end"], self.settings["spacing"]
         )
 
+        print(f"Axis length: {self.axis.get_length()}")
+
     def create_diff(self) -> None:
         if self.axis is None:
             self.create_axis()
